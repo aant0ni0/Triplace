@@ -42,6 +42,7 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     await DataSeeder.SeedAsync(scope.ServiceProvider);
+    await WaterParkSeeder.SeedAsync(scope.ServiceProvider);
 }
 
 app.Run();
