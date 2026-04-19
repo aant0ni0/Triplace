@@ -147,9 +147,64 @@ public static class DataSeeder
             new HashSet<AttractionAmenity> { AttractionAmenity.ParkingNearby },
             [new MetadataEntry("adres", "Wawel 5, 31-001 Kraków"), new MetadataEntry("bilet_normalny", "19 zł"), new MetadataEntry("sezon", "24 kwietnia – 31 października")]));
 
+        // Kopiec Kościuszki — rodzic kompleksu, taki sam wzorzec jak Wawel powyżej.
+        // Model Triplace wspiera hierarchię drzewiastą (Composite) — idealnie pasuje do modelowania
+        // "kopiec + fort + muzeum + kaplica jako jeden kompleks turystyczny".
+        // Cena — do MetadataEntry jako string, bo model nie ma gdzie jej wsadzić (ograniczenie modelu).
+        var kopiecId = await attractionService.CreateDraftAsync(new CreateAttractionCommand(
+            "Kopiec Kościuszki - kompleks",
+            AttractionCategory.NaturalSite,
+            new HashSet<Season> { Season.Spring, Season.Summer, Season.Autumn, Season.Winter },
+            VisitDuration.Long,
+            IsOutdoor: true,
+            IsFree: false,
+            new HashSet<AttractionAmenity> { AttractionAmenity.GuideAvailable, AttractionAmenity.AudioGuide, AttractionAmenity.GiftShop, AttractionAmenity.Cafe, AttractionAmenity.ParkingNearby },
+            [new MetadataEntry("adres", "al. Waszyngtona 1, 30-204 Kraków"), new MetadataEntry("bilet_lacznosy_normalny", "28 zł"), new MetadataEntry("wysokosc", "326 m n.p.m.")]));
+
+        var kopiecNasypId = await attractionService.CreateDraftAsync(new CreateAttractionCommand(
+            "Kopiec Kościuszki - Nasyp i taras widokowy",
+            AttractionCategory.NaturalSite,
+            new HashSet<Season> { Season.Spring, Season.Summer, Season.Autumn, Season.Winter },
+            VisitDuration.Short,
+            IsOutdoor: true,
+            IsFree: false,
+            new HashSet<AttractionAmenity> { },
+            [new MetadataEntry("adres", "al. Waszyngtona 1, 30-204 Kraków"), new MetadataEntry("bilet_normalny", "18 zł")]));
+
+        var kopiecMuzeumId = await attractionService.CreateDraftAsync(new CreateAttractionCommand(
+            "Muzeum Kościuszki",
+            AttractionCategory.Museum,
+            new HashSet<Season> { Season.Spring, Season.Summer, Season.Autumn, Season.Winter },
+            VisitDuration.Short,
+            IsOutdoor: false,
+            IsFree: false,
+            new HashSet<AttractionAmenity> { AttractionAmenity.AudioGuide, AttractionAmenity.WheelchairAccess, AttractionAmenity.FamilyFriendly },
+            [new MetadataEntry("adres", "al. Waszyngtona 1, 30-204 Kraków"), new MetadataEntry("bilet_normalny", "14 zł")]));
+
+        var kopiecKaplicaId = await attractionService.CreateDraftAsync(new CreateAttractionCommand(
+            "Kaplica bł. Bronisławy",
+            AttractionCategory.Church,
+            new HashSet<Season> { Season.Spring, Season.Summer, Season.Autumn, Season.Winter },
+            VisitDuration.Short,
+            IsOutdoor: false,
+            IsFree: false,
+            new HashSet<AttractionAmenity> { AttractionAmenity.WheelchairAccess },
+            [new MetadataEntry("adres", "al. Waszyngtona 1, 30-204 Kraków"), new MetadataEntry("bilet_normalny", "5 zł")]));
+
+        var kopiecFortId = await attractionService.CreateDraftAsync(new CreateAttractionCommand(
+            "Fort 2 Kościuszko - wały austriackie",
+            AttractionCategory.NaturalSite,
+            new HashSet<Season> { Season.Spring, Season.Summer, Season.Autumn },
+            VisitDuration.Short,
+            IsOutdoor: true,
+            IsFree: false,
+            new HashSet<AttractionAmenity> { AttractionAmenity.WheelchairAccess, AttractionAmenity.ParkingNearby },
+            [new MetadataEntry("adres", "al. Waszyngtona 1, 30-204 Kraków"), new MetadataEntry("bilet_normalny", "10 zł"), new MetadataEntry("sezon", "kwiecień – październik")]));
+
         // 2. Publish all
         foreach (var id in new[] { wawelId, rynekId, sukienniceId, kazimierzId, kosciolId, auschwitzId,
-                     zamekId, podziemiaId, skarbiecId, zbrojowniaId, smoczaJamaId, ogrodyId, basztaId })
+                     zamekId, podziemiaId, skarbiecId, zbrojowniaId, smoczaJamaId, ogrodyId, basztaId,
+                     kopiecId, kopiecNasypId, kopiecMuzeumId, kopiecKaplicaId, kopiecFortId })
             await attractionService.PublishAsync(id);
 
         // 3. Hierarchy: Sukiennice i Kościół Mariacki są pod Rynkiem Głównym
@@ -165,6 +220,12 @@ public static class DataSeeder
         await attractionService.AddChildAsync(wawelId, ogrodyId);
         await attractionService.AddChildAsync(wawelId, basztaId);
 
+        // Kopiec Kościuszki — hierarchia kompleksu
+        await attractionService.AddChildAsync(kopiecId, kopiecNasypId);
+        await attractionService.AddChildAsync(kopiecId, kopiecMuzeumId);
+        await attractionService.AddChildAsync(kopiecId, kopiecKaplicaId);
+        await attractionService.AddChildAsync(kopiecId, kopiecFortId);
+
         // 4. Seasonal catalog
         var catalogId = await catalogService.CreateAsync(new CreateSeasonalCatalogCommand(
             "Kraków Lato 2025",
@@ -175,7 +236,7 @@ public static class DataSeeder
             "Letni katalog atrakcji Krakowa",
             500));
 
-        foreach (var id in new[] { wawelId, rynekId, kazimierzId, auschwitzId })
+        foreach (var id in new[] { wawelId, rynekId, kazimierzId, auschwitzId, kopiecId })
             await catalogService.AddAttractionAsync(catalogId, id);
 
         // 5. Relations
@@ -185,6 +246,11 @@ public static class DataSeeder
 
         await relationService.AddRecommendationAsync(
             new AttractionId((await attractionService.GetByIdAsync(wawelId))!.Id.Value),
+            new AttractionId((await attractionService.GetByIdAsync(rynekId))!.Id.Value));
+
+        // Kopiec ↔ Las Wolski to naturalne sąsiedzi; Kopiec ↔ Rynek to typowa dzienna trasa.
+        await relationService.AddRecommendationAsync(
+            new AttractionId((await attractionService.GetByIdAsync(kopiecId))!.Id.Value),
             new AttractionId((await attractionService.GetByIdAsync(rynekId))!.Id.Value));
 
         // 6. Route
